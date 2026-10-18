@@ -4,6 +4,10 @@
 
 🔗 **在线体验：<https://andy-hub-byte.github.io/C-plus-plus/>**
 
+![CI](https://github.com/Andy-hub-byte/C-plus-plus/actions/workflows/ci.yml/badge.svg)
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![No build](https://img.shields.io/badge/build-none-success.svg)
+
 ---
 
 ## 为什么做这个
