@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>小 A · 平板上的 AI 助手</title>
+<style>
+  :root {
+    --bg:#d4d0c8; --panel:#dcd9d2; --panel2:#e8e5de; --code:#ffffff;
+    --border:#a9a49a; --border2:#857f76;
+    --text:#1a1a1a; --muted:#5c574e; --title:#0a246a; --body:#2b2b2b;
+    --green:#1a7d37; --blue:#0b4ea2; --red:#c0392b; --chip:#d4d0c8; --chip-ink:#1a1a1a;
+    --btn-hi:#ffffff; --btn-lo:#6e6a62;
+    --shadow:0 2px 8px rgba(0,0,0,.25);
+    --mono:Consolas,"Cascadia Mono","Courier New",monospace;
+  }
+  [data-theme="dark"] {
+    --bg:#0f1420; --panel:#151c2e; --panel2:#121828; --code:#0a0e18;
+    --border:#26304a; --border2:#34406a;
+    --text:#e6e9f0; --muted:#8b96b0; --title:#c9d4ee; --body:#b9c4dc;
+    --green:#2fbf71; --blue:#5ecbff; --red:#ff8080; --chip:#1c2438; --chip-ink:#aeb8cf;
+    --btn-hi:#3d4a6e; --btn-lo:#0a0e18;
+    --shadow:0 3px 12px rgba(0,0,0,.45);
+  }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; padding-bottom:12px; }
+
+  header { display:flex; align-items:center; padding:10px 12px; gap:10px; background:var(--panel); border-bottom:2px solid var(--border2); position:sticky; top:0; z-index:10; }
+  header .logo { width:34px; height:34px; border-radius:8px; background:var(--blue); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:17px; box-shadow:inset 0 -2px 0 rgba(0,0,0,.3); }
+  header .t { flex:1; min-width:0; }
+  header h1 { font-size:16px; margin:0; color:var(--title); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  header .st { font-size:11px; color:var(--muted); margin-top:2px; }
+  header .st b { font-weight:600; }
+  .st-on { color:var(--green); } .st-off { color:var(--red); }
+  .hbtn { border:1px solid var(--border2); background:linear-gradient(var(--btn-hi),var(--btn-lo)); border-radius:6px; width:34px; height:30px; font-size:14px; cursor:pointer; color:var(--text); }
+  .hbtn:active { transform:translateY(1px); }
+
+  #statusbar { display:flex; gap:6px; padding:8px 12px; font-size:11px; color:var(--muted); flex-wrap:wrap; }
+  #statusbar .pill { border:1px solid var(--border); border-radius:10px; padding:2px 8px; background:var(--panel); }
+  #statusbar .pill.on { color:var(--green); border-color:var(--green); }
+  #statusbar .pill.off { color:var(--muted); }
+
+  #chat { padding:0 12px; display:flex; flex-direction:column; gap:10px; }
+  .msg { max-width:88%; padding:9px 12px; border-radius:12px; font-size:15px; line-height:1.55; white-space:pre-wrap; word-break:break-word; box-shadow:0 1px 3px rgba(0,0,0,.15); }
+  .msg.agent { align-self:flex-start; background:var(--panel); border:1px solid var(--border); border-top-left-radius:3px; }
+  .msg.user { align-self:flex-end; background:var(--blue); color:#fff; border-top-right-radius:3px; }
+  .msg .src { display:block; font-size:10px; opacity:.65; margin-top:6px; font-family:var(--mono); }
+  .typing { align-self:flex-start; color:var(--muted); font-size:13px; padding:4px 12px; display:none; }
+  .typing.show { display:block; }
+
+  #chips { display:flex; gap:8px; padding:10px 12px 4px; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  .chip { flex:0 0 auto; border:1px solid var(--border2); background:var(--chip); color:var(--chip-ink); border-radius:16px; padding:6px 13px; font-size:13px; cursor:pointer; }
+  .chip:active { background:var(--border); }
+
+  #inputbar { position:sticky; bottom:0; display:flex; gap:8px; padding:10px 12px; background:var(--panel); border-top:2px solid var(--border2); }
+  #input { flex:1; border:1px solid var(--border2); border-radius:8px; padding:11px 12px; font-size:16px; background:var(--code); color:var(--text); font-family:inherit; }
+  #input:focus { outline:2px solid var(--blue); outline-offset:-1px; }
+  #send { border:1px solid var(--border2); background:linear-gradient(var(--btn-hi),var(--btn-lo)); border-radius:8px; padding:0 18px; font-size:15px; font-weight:600; color:var(--text); cursor:pointer; }
+  #send:active { transform:translateY(1px); }
+
+  #memPanel { display:none; margin:0 12px 10px; border:1px solid var(--border); background:var(--panel2); border-radius:8px; padding:10px 12px; font-size:13px; }
+  #memPanel.show { display:block; }
+  #memPanel h3 { margin:0 0 8px; font-size:13px; color:var(--title); }
+  #memPanel .mrow { display:flex; justify-content:space-between; padding:3px 0; border-bottom:1px dashed var(--border); }
+  #memPanel .mrow button { border:none; background:none; color:var(--red); cursor:pointer; font-size:12px; }
+  #setPanel { display:none; margin:0 12px 10px; border:1px solid var(--border); background:var(--panel2); border-radius:8px; padding:10px 12px; font-size:13px; }
+  #setPanel.show { display:block; }
+  #setPanel h3 { margin:0 0 8px; font-size:13px; color:var(--title); }
+  #setPanel .row { display:flex; gap:8px; align-items:center; margin:8px 0; flex-wrap:wrap; }
+  #setPanel input[type=password] { flex:1; min-width:200px; border:1px solid var(--border2); border-radius:6px; padding:8px 10px; font-size:14px; background:var(--code); color:var(--text); }
+  #setPanel select { border:1px solid var(--border2); border-radius:6px; padding:8px; font-size:14px; background:var(--code); color:var(--text); }
+  #setPanel .btn-mini2 { border:1px solid var(--border2); background:linear-gradient(var(--btn-hi),var(--btn-lo)); border-radius:6px; padding:7px 14px; font-size:13px; cursor:pointer; color:var(--text); }
+  #setPanel .hint { color:var(--muted); font-size:12px; line-height:1.6; }
+  #setPanel .hint a { color:var(--blue); }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">A</div>
+  <div class="t">
+    <h1>小 A · 平板上的 AI 助手</h1>
+    <div class="st" id="netStat">正在探测在线能力…</div>
+  </div>
+  <button class="hbtn" id="themeBtn" title="切换深浅主题">🌙</button>
+  <button class="hbtn" id="memBtn" title="查看我的记忆">🧠</button>
+  <button class="hbtn" id="setBtn" title="大脑设置 / 接入大模型">⚙️</button>
+</header>
+
+<div id="statusbar"></div>
+
+<div id="chat"></div>
+<div class="typing" id="typing">小 A 正在想…</div>
+
+<div id="chips">
+  <button class="chip" data-q="你能做什么？">能力清单</button>
+  <button class="chip" data-q="掷个骰子">🎲 掷骰子</button>
+  <button class="chip" data-q="抛硬币">🪙 抛硬币</button>
+  <button class="chip" data-q="今晚吃什么">🍚 今晚吃什么</button>
+  <button class="chip" data-q="帮我抽签 去打球 打游戏 写代码">🎯 抽签</button>
+  <button class="chip" data-q="算一下 (3+5)*8-16/4">🧮 算数</button>
+  <button class="chip" data-q="查一下 火箭">📖 查百科</button>
+  <button class="chip" data-q="北京天气怎么样">🌤 天气</button>
+  <button class="chip" data-q="现在几点">🕐 报时</button>
+  <button class="chip" data-q="3公里等于多少米">📏 换算</button>
+</div>
+
+<div id="memPanel"><h3>🧠 小 A 的记忆（存在这台平板里，不上传）</h3><div id="memList"></div></div>
+
+<div id="setPanel">
+  <h3>⚙️ 大脑设置</h3>
+  <div class="row">
+    <input id="msKey" type="password" placeholder="魔搭 API Key（只存在这台平板，不上传）">
+    <select id="msModel">
+      <option value="Qwen/Qwen2.5-7B-Instruct">Qwen2.5-7B（快，推荐）</option>
+      <option value="Qwen/Qwen2.5-14B-Instruct">Qwen2.5-14B（更聪明）</option>
+      <option value="Qwen/Qwen2.5-Coder-7B-Instruct">Qwen Coder（代码向）</option>
+      <option value="deepseek-ai/DeepSeek-V3">DeepSeek-V3（最强，费额度）</option>
+    </select>
+    <button class="btn-mini2" id="msSave">保存</button>
+    <button class="btn-mini2" id="msClear">清除</button>
+  </div>
+  <div class="hint" id="msStat"></div>
+  <div class="hint">
+    填了 Key，小 A 就换上真·大模型（通义 Qwen，能自己决定调工具：查天气/查百科/记事儿）。<br>
+    Key 免费申请：<a href="https://modelscope.cn" target="_blank">modelscope.cn</a> 注册 → 绑定阿里云 → 右上角头像 → <b>访问令牌</b> → 创建（每天有免费额度）。<br>
+    没填也能用：本地大脑（算数/记忆/掷骰子/换算）永不停机，公共 AI 网关能通时顶上。
+  </div>
+  <div class="row" style="margin-top:10px;border-top:1px dashed var(--border);padding-top:10px">
+    <button class="btn-mini2" id="shareBtn">📤 复制网页链接</button>
+    <a class="btn-mini2" href="https://github.com/Andy-hub-byte/C-plus-plus" target="_blank" style="text-decoration:none">⭐ 去 GitHub 给个 Star</a>
+  </div>
+</div>
+
+<div id="inputbar">
+  <input id="input" type="text" placeholder="跟小 A 说点什么…（Enter 发送）" autocomplete="off">
+  <button id="send">发送</button>
+</div>
+
+<script>
+'use strict';
+/* ================= 小 A · 本地优先的平板 agent =================
+   架构：本地 backbone（计算/记忆/随机/换算/时间）永远可用；
+        在线增强（AI 对话/天气/百科）尽力而为，失败自动降级。 */
+(function () {
+
+  /* ---------- 主题 ---------- */
+  var themeBtn = document.getElementById('themeBtn');
+  var savedTheme = null;
+  try { savedTheme = localStorage.getItem('agent_theme'); } catch (e) {}
+  if (savedTheme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+  themeBtn.addEventListener('click', function () {
+    var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+    if (dark) document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', 'dark');
+    try { localStorage.setItem('agent_theme', dark ? 'light' : 'dark'); } catch (e) {}
+  });
+
+  /* ---------- 记忆（localStorage） ---------- */
+  var MEM_KEY = 'agent_memory_v1';
+  var mem = { name: '', facts: [] };
+  try {
+    var raw = localStorage.getItem(MEM_KEY);
+    if (raw) { var p = JSON.parse(raw); if (p && typeof p === 'object') mem = p; }
+  } catch (e) {}
+  function memSave() { try { localStorage.setItem(MEM_KEY, JSON.stringify(mem)); } catch (e) {} }
+  function memRender() {
+    var box = document.getElementById('memList');
+    var rows = [];
+    if (mem.name) rows.push({ k: '怎么称呼你', v: mem.name, tag: 'name' });
+    mem.facts.forEach(function (f, i) { rows.push({ k: '备忘 #' + (i + 1), v: f, tag: 'fact' + i }); });
+    if (!rows.length) { box.innerHTML = '<div style="color:var(--muted)">还没有记忆。对我说「记住我叫阿仓」试试。</div>'; return; }
+    box.innerHTML = rows.map(function (r) {
+      return '<div class="mrow"><span>' + esc(r.k) + '：' + esc(r.v) + '</span>' +
+        '<button data-del="' + r.tag + '">删除</button></div>';
+    }).join('');
+    box.querySelectorAll('button[data-del]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var tag = b.getAttribute('data-del');
+        if (tag === 'name') mem.name = '';
+        else if (tag.indexOf('fact') === 0) mem.facts.splice(+tag.slice(4), 1);
+        memSave(); memRender();
+        say('好，这条我忘了。');
+      });
+    });
+  }
+  document.getElementById('memBtn').addEventListener('click', function () {
+    document.getElementById('memPanel').classList.toggle('show');
+    if (document.getElementById('memPanel').classList.contains('show')) memRender();
+  });
+
+  /* ---------- 设置面板（魔搭 Key / 模型 / 分享） ---------- */
+  var setPanel = document.getElementById('setPanel');
+  var msKeyInput = document.getElementById('msKey');
+  var msModelSel = document.getElementById('msModel');
+  msKeyInput.value = msGetKey();
+  msModelSel.value = msGetModel();
+  function msStatText() {
+    var has = !!msGetKey();
+    document.getElementById('msStat').innerHTML = has
+      ? '当前大脑：<b style="color:var(--green)">魔搭 ' + msGetModel() + '</b>（真大模型 + 工具调用）'
+      : '当前大脑：<b>本地规则 + 公共网关</b>（填 Key 升级为真大模型）';
+    return has;
+  }
+  document.getElementById('setBtn').addEventListener('click', function () {
+    setPanel.classList.toggle('show');
+    if (setPanel.classList.contains('show')) msStatText();
+  });
+  document.getElementById('msSave').addEventListener('click', function () {
+    var k = msKeyInput.value.trim();
+    try {
+      if (k) { localStorage.setItem(MS_KEY, k); localStorage.setItem(MS_MODEL, msModelSel.value); }
+      else { localStorage.removeItem(MS_KEY); }
+    } catch (e) {}
+    msStatText(); renderStatus();
+    say(k ? '换脑完成！现在是魔搭 ' + msModelSel.value + '，我能自己决定调工具了。随便问点复杂的试试。' : 'Key 清空了，回到本地大脑 + 公共网关。', '系统');
+  });
+  document.getElementById('msClear').addEventListener('click', function () {
+    msKeyInput.value = '';
+    try { localStorage.removeItem(MS_KEY); } catch (e) {}
+    msStatText(); renderStatus();
+  });
+  document.getElementById('shareBtn').addEventListener('click', function () {
+    var url = location.href.split('#')[0];
+    function ok() { say('链接已复制，发给别人就能打开：' + url, '系统'); }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(ok, function () { fallbackCopy(url); ok(); });
+    } else { fallbackCopy(url); ok(); }
+  });
+  function fallbackCopy(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); } catch (e) {}
+    document.body.removeChild(ta);
+  }
+
+  /* ---------- 短期记忆（最近几轮对话，localStorage 持久化） ---------- */
+  var HIS_KEY = 'agent_history_v1';
+  var history = [];
+  try {
+    var hraw = localStorage.getItem(HIS_KEY);
+    if (hraw) { var hp = JSON.parse(hraw); if (Array.isArray(hp)) history = hp.slice(-8); }
+  } catch (e) {}
+  function hisPush(role, text) {
+    history.push({ r: role, t: String(text).slice(0, 200) });
+    if (history.length > 8) history = history.slice(-8);
+    try { localStorage.setItem(HIS_KEY, JSON.stringify(history)); } catch (e) {}
+  }
+  /* 离线大脑也能引用短期记忆：问题里的关键词在历史里找找（跳过最后一条=当前这句） */
+  function recallLocal(t) {
+    var q = t.replace(/[?？。，,！!]|是什么|叫什么|什么|请问|帮我|一下/g, '').trim();
+    if (q.length < 2) return null;
+    for (var i = history.length - 2; i >= 0; i--) {
+      if (history[i].r !== 'user') continue;
+      var said = history[i].t;
+      // 问题关键词（2字以上片段）出现在历史原话里
+      for (var L = 2; L <= Math.min(6, q.length); L++) {
+        for (var s = 0; s + L <= q.length; s++) {
+          var frag = q.slice(s, s + L);
+          if (frag.length >= 2 && said.indexOf(frag) !== -1) {
+            return '你刚才说过：' + said;
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  /* ---------- 聊天 UI ---------- */
+  var chat = document.getElementById('chat');
+  var input = document.getElementById('input');
+  var typing = document.getElementById('typing');
+  function esc(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function bubble(text, who, src) {
+    var d = document.createElement('div');
+    d.className = 'msg ' + who;
+    d.innerHTML = esc(text) + (src ? '<span class="src">' + esc(src) + '</span>' : '');
+    chat.appendChild(d);
+    d.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    return d;
+  }
+  function say(text, src) { bubble(text, 'agent', src || null); }
+
+  /* ---------- fetch 统一封装：8 秒超时，绝不让请求挂死 ---------- */
+  function fetchT(url, ms) {
+    var ctrl = new AbortController();
+    var timer = setTimeout(function () { ctrl.abort(); }, ms || 8000);
+    return fetch(url, { method: 'GET', mode: 'cors', signal: ctrl.signal })
+      .then(function (r) { clearTimeout(timer); if (!r.ok) throw new Error('HTTP ' + r.status); return r; },
+            function (e) { clearTimeout(timer); throw new Error(e.name === 'AbortError' ? '超时' : '网络不通'); });
+  }
+
+  /* ---------- 在线能力探测（不阻塞启动，只影响状态条） ---------- */
+  var online = { ai: false, wiki: false, weather: false };
+  var WMO = {
+    0: '晴', 1: '大致晴', 2: '局部多云', 3: '阴', 45: '雾', 48: '冻雾',
+    51: '毛毛雨', 53: '毛毛雨', 55: '浓毛毛雨', 61: '小雨', 63: '中雨', 65: '大雨',
+    66: '冻雨', 67: '强冻雨', 71: '小雪', 73: '中雪', 75: '大雪', 77: '雪粒',
+    80: '阵雨', 81: '强阵雨', 82: '暴雨', 85: '阵雪', 86: '强阵雪',
+    95: '雷暴', 96: '雷暴伴冰雹', 99: '强雷暴伴冰雹'
+  };
+  function renderStatus() {
+    var brain = msGetKey() ? '魔搭 Qwen' : '本地+网关';
+    document.getElementById('netStat').innerHTML =
+      '在线能力：AI 对话 <b class="' + (online.ai ? 'st-on">✓' : 'st-off">✗') + '</b>' +
+      ' · 天气 <b class="' + (online.weather ? 'st-on">✓' : 'st-off">✗') + '</b>' +
+      ' · 百科 <b class="' + (online.wiki ? 'st-on">✓' : 'st-off">✗') + '</b>' +
+      ' · 大脑 <b>' + brain + '</b>';
+    var sb = document.getElementById('statusbar');
+    sb.innerHTML =
+      '<span class="pill ' + (online.ai ? 'on' : 'off') + '">AI 对话</span>' +
+      '<span class="pill ' + (online.weather ? 'on' : 'off') + '">天气</span>' +
+      '<span class="pill ' + (online.wiki ? 'on' : 'off') + '">百科</span>' +
+      '<span class="pill on">计算/记忆/随机/换算</span>' +
+      '<span class="pill on">大脑：' + brain + '</span>';
+  }
+  renderStatus();
+  function probe(name, url, timeoutMs) {
+    return new Promise(function (res) {
+      var done = false;
+      var t = setTimeout(function () { if (!done) { done = true; res(false); } }, timeoutMs || 6000);
+      fetchT(url, timeoutMs || 6000).then(function (r) {
+        return r.text();
+      }).then(function () {
+        if (!done) { done = true; clearTimeout(t); res(true); }
+      }).catch(function () { if (!done) { done = true; clearTimeout(t); res(false); } });
+    }).then(function (ok) { online[name] = ok; renderStatus(); });
+  }
+  // 探测要轻：AI 用最短 prompt；百科/天气用小查询
+  probe('ai', 'https://text.pollinations.ai/hi', 8000);
+  probe('wiki', 'https://zh.wikipedia.org/w/api.php?action=query&format=json&origin=*&titles=%E7%81%AB%E7%AE%AD', 6000);
+  probe('weather', 'https://api.open-meteo.com/v1/forecast?latitude=39.9&longitude=116.4&current=temperature_2m', 6000);
+
+  /* ---------- 工具 1：计算器（自写递归下降，不 eval） ---------- */
+  function calc(expr) {
+    var s = String(expr)
+      .replace(/^(?:请?帮我?|帮我?)?(?:算一下?|计算一下?|算算|计算|算)\s*/, '')
+      .replace(/[×✕]/g, '*').replace(/[÷]/g, '/').replace(/，/g, ',')
+      .replace(/等于多少|是多少|等于|结果|=?$/g, '');
+    var i = 0;
+    function ws() { while (i < s.length && s[i] === ' ') i++; }
+    function peek() { ws(); return s[i]; }
+    function num() {
+      ws();
+      var st = i;
+      while (i < s.length && /[0-9.]/.test(s[i])) i++;
+      if (st === i) throw new Error('缺数字');
+      var v = parseFloat(s.slice(st, i));
+      // 百分号：50% → 0.5
+      if (s[i] === '%') { i++; v = v / 100; }
+      return v;
+    }
+    function atom() {
+      ws();
+      if (s[i] === '(') { i++; var v = expr_(); ws(); if (s[i] !== ')') throw new Error('缺右括号'); i++; return v; }
+      if (s[i] === '-') { i++; return -atom(); }
+      if (s[i] === '+') { i++; return atom(); }
+      var m = /^[a-zA-Z一-龥]+/.exec(s.slice(i));
+      if (m) {
+        var name = m[0]; i += name.length;
+        ws(); if (s[i] === '(') i++; else throw new Error('函数要跟括号');
+        var arg = expr_(); ws(); if (s[i] !== ')') throw new Error('缺右括号'); i++;
+        return callFn(name.toLowerCase(), arg);
+      }
+      return num();
+    }
+    function callFn(name, a) {
+      var r = a * Math.PI / 180;
+      switch (name) {
+        case 'sqrt': case '开根': return Math.sqrt(a);
+        case 'abs': case '绝对值': return Math.abs(a);
+        case 'round': case '四舍五入': return Math.round(a);
+        case 'sin': return Math.sin(r);
+        case 'cos': return Math.cos(r);
+        case 'tan': return Math.tan(r);
+        case 'ln': return Math.log(a);
+        case 'log': return Math.log(a) / Math.LN10;
+        case 'pi': return Math.PI;
+        case 'e': return Math.E;
+      }
+      throw new Error('不认识的函数「' + name + '」');
+    }
+    function power() {
+      var v = atom();
+      ws();
+      if (s[i] === '^') { i++; return Math.pow(v, power()); }
+      return v;
+    }
+    function term() {
+      var v = power();
+      while (true) {
+        ws();
+        if (s[i] === '*') { i++; v *= power(); }
+        else if (s[i] === '/') { i++; var d = power(); if (d === 0) throw new Error('不能除以 0'); v /= d; }
+        else return v;
+      }
+    }
+    function expr_() {
+      var v = term();
+      while (true) {
+        ws();
+        if (s[i] === '+') { i++; v += term(); }
+        else if (s[i] === '-') { i++; v -= term(); }
+        else return v;
+      }
+    }
+    ws();
+    if (i >= s.length || !/[0-9a-zA-Z(]/.test(s[i])) throw new Error('没找到算式');
+    var out = expr_();
+    ws();
+    if (i < s.length) throw new Error('「' + s[i] + '」这儿看不懂');
+    if (!isFinite(out)) throw new Error('结果超出范围');
+    return Math.round(out * 1e10) / 1e10;
+  }
+  function looksLikeMath(t) {
+    return /[0-9]/.test(t) && /[+\-*/^%×÷]|乘以|除以|加上|减去|平方|开根|sqrt|sin|cos/.test(t);
+  }
+
+  /* ---------- 工具 2：随机决定器（纯本地，永远好玩） ---------- */
+  var FOODS = ['火锅', '烧烤', '拉面', '盖浇饭', '饺子', '炒饭', '披萨', '汉堡', '麻辣烫', '寿司', '炒河粉', '黄焖鸡', '沙拉', '螺蛳粉', '烤鱼'];
+  function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+  function dice() {
+    var d = 1 + Math.floor(Math.random() * 6);
+    var faces = ['', '⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
+    return d + ' 点 ' + faces[d];
+  }
+
+  /* ---------- 工具 3：单位换算（本地表） ---------- */
+  var UNITS = {
+    len: { '米': 1, '千米': 1000, '公里': 1000, '厘米': 0.01, '毫米': 0.001, '英里': 1609.344, '英尺': 0.3048, '英寸': 0.0254, '码': 0.9144, '海里': 1852, '里': 500 },
+    mass: { '克': 1, '千克': 1000, '公斤': 1000, '斤': 500, '两': 50, '吨': 1e6, '磅': 453.592, '盎司': 28.3495, '毫克': 0.001 },
+    area: { '平方米': 1, '平方千米': 1e6, '平方公里': 1e6, '亩': 666.667, '公顷': 1e4, '平方厘米': 0.0001, '平方英尺': 0.092903, '平方英里': 2589988 },
+    vol: { '升': 1, '毫升': 0.001, '立方米': 1000, '加仑': 3.78541, '品脱': 0.473176, '杯': 0.24 }
+  };
+  function convert(t) {
+    var m = /(-?[\d.]+)\s*([一-龥]+)\s*(?:等于|是多少|换成|换成多少|折合|等于多少|=)\s*(?:多少)?([一-龥]+)/.exec(t);
+    if (!m) return null;
+    var v = parseFloat(m[1]), from = m[2], to = m[3];
+    for (var cat in UNITS) {
+      var T = UNITS[cat];
+      if (T[from] && T[to]) {
+        var r = v * T[from] / T[to];
+        r = Math.round(r * 1e6) / 1e6;
+        return v + ' ' + from + ' = ' + r + ' ' + to;
+      }
+    }
+    return null;
+  }
+  function tempConvert(t) {
+    var m = /(-?[\d.]+)\s*(?:度|摄氏度|℃|°C)\s*(?:等于|是多少|换成|转成?)\s*(?:多少)?(华氏度|℉|°F)/.exec(t);
+    if (m) {
+      var c = parseFloat(m[1]);
+      return c + ' ℃ = ' + Math.round((c * 9 / 5 + 32) * 10) / 10 + ' ℉';
+    }
+    m = /(-?[\d.]+)\s*(华氏度|℉|°F)\s*(?:等于|是多少|换成|转成?)\s*(?:多少)?(度|摄氏度|℃|°C)/.exec(t);
+    if (m) {
+      var f = parseFloat(m[1]);
+      return f + ' ℉ = ' + Math.round(((f - 32) * 5 / 9) * 10) / 10 + ' ℃';
+    }
+    return null;
+  }
+
+  /* ---------- 工具 4：天气（Open-Meteo，免 key） ---------- */
+  function weather(city) {
+    var enc = encodeURIComponent(city);
+    return fetchT('https://geocoding-api.open-meteo.com/v1/search?name=' + enc + '&count=1&language=zh&format=json')
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (!j.results || !j.results.length) throw new Error('没找到「' + city + '」这个地方');
+        var g = j.results[0];
+        return fetchT('https://api.open-meteo.com/v1/forecast?latitude=' + g.latitude + '&longitude=' + g.longitude +
+          '&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&timezone=auto')
+          .then(function (r2) { return r2.json(); })
+          .then(function (w) {
+            var c = w.current || {};
+            var code = c.weather_code;
+            var desc = (code in WMO) ? WMO[code] : '天气';
+            return (g.name || city) + '现在' + (Math.round(c.temperature_2m) + ' ℃') +
+              '，' + desc + '，湿度 ' + (c.relative_humidity_2m != null ? c.relative_humidity_2m + '%' : '—') +
+              '，风速 ' + (c.wind_speed_10m != null ? Math.round(c.wind_speed_10m) + ' km/h' : '—') +
+              '。（数据来源 Open-Meteo）';
+          });
+      });
+  }
+
+  /* ---------- 工具 5：百科（维基百科中文，免 key） ---------- */
+  function wiki(term) {
+    var enc = encodeURIComponent(term.replace(/的?意思$/, ''));
+    return fetchT('https://zh.wikipedia.org/w/api.php?action=query&prop=extracts&exintro&explaintext&exsectionformat=plain&redirects=1&format=json&origin=*&titles=' + enc)
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        var pages = j.query && j.query.pages;
+        if (!pages) throw new Error('百科没返回');
+        var p = pages[Object.keys(pages)[0]];
+        if (!p || p.missing !== undefined || !p.extract) throw new Error('百科里没有「' + term + '」');
+        var txt = p.extract.length > 500 ? p.extract.slice(0, 500) + '…' : p.extract;
+        return txt + '\n——摘自中文维基百科';
+      });
+  }
+
+  /* ---------- 魔搭（ModelScope）大模型接入：OpenAI 兼容 + function calling ---------- */
+  var MS_KEY = 'agent_ms_key', MS_MODEL = 'agent_ms_model';
+  function msGetKey() { try { return localStorage.getItem(MS_KEY) || ''; } catch (e) { return ''; } }
+  function msGetModel() { try { return localStorage.getItem(MS_MODEL) || 'Qwen/Qwen2.5-7B-Instruct'; } catch (e) { return 'Qwen/Qwen2.5-7B-Instruct'; } }
+
+  /* 暴露给大模型的工具（agent 的手脚） */
+  var TOOLS = [
+    {
+      type: 'function',
+      function: {
+        name: 'get_weather',
+        description: '查询某个中国城市的实时天气。用户问天气、气温、下不下雨、热不热时调用。',
+        parameters: { type: 'object', properties: { city: { type: 'string', description: '城市名，如 北京' } }, required: ['city'] }
+      }
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'wiki_lookup',
+        description: '查询中文维基百科词条摘要。用户想了解一个概念、人物、事物是什么时调用。',
+        parameters: { type: 'object', properties: { term: { type: 'string', description: '要查的词条，如 火箭' } }, required: ['term'] }
+      }
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'remember_fact',
+        description: '把用户的一条信息记入长期备忘。用户说「记住…」或透露重要偏好时调用。',
+        parameters: { type: 'object', properties: { fact: { type: 'string', description: '要记住的内容' } }, required: ['fact'] }
+      }
+    }
+  ];
+  function runTool(name, args) {
+    try {
+      if (name === 'get_weather') return weather(String(args.city || '北京'));
+      if (name === 'wiki_lookup') return wiki(String(args.term || ''));
+      if (name === 'remember_fact') {
+        var f = String(args.fact || '').replace(/^我/, '你').slice(0, 120);
+        if (!f) return Promise.resolve('（没什么可记的）');
+        mem.facts.push(f); memSave();
+        return Promise.resolve('已记住：' + f);
+      }
+      return Promise.resolve('（没有工具叫 ' + name + '）');
+    } catch (e) {
+      return Promise.resolve('（工具执行出错：' + e.message + '）');
+    }
+  }
+
+  /* 魔搭对话：messages + tools，最多 2 轮工具循环 */
+  function msChat(userText) {
+    var key = msGetKey();
+    if (!key) return Promise.reject(new Error('没填魔搭 Key'));
+    var sys = '你是「小A」，住在用户平板里的中文AI助手，说话简洁、口语化、友好，回答不超过150字。';
+    if (mem.name) sys += '用户名字叫' + mem.name + '。';
+    if (mem.facts.length) sys += '已知备忘：' + mem.facts.join('；') + '。';
+    var msgs = [{ role: 'system', content: sys }];
+    for (var i = Math.max(0, history.length - 6); i < history.length; i++) {
+      msgs.push({ role: history[i].r === 'user' ? 'user' : 'assistant', content: history[i].t });
+    }
+    msgs.push({ role: 'user', content: userText });
+    var model = msGetModel();
+
+    function call(body) {
+      var ctrl = new AbortController();
+      var timer = setTimeout(function () { ctrl.abort(); }, 15000);
+      return fetch('https://api-inference.modelscope.cn/v1/chat/completions', {
+        method: 'POST',
+        mode: 'cors',
+        signal: ctrl.signal,
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
+        body: JSON.stringify(body)
+      }).then(function (r) {
+        clearTimeout(timer);
+        if (!r.ok) throw new Error('魔搭 HTTP ' + r.status);
+        return r.json();
+      }).then(function (j) {
+        if (j.error) throw new Error(j.error.message || j.error.code || '魔搭报错');
+        if (!j.choices || !j.choices.length) throw new Error('魔搭没返回内容');
+        return j.choices[0].message;
+      }, function (e) {
+        clearTimeout(timer);
+        throw new Error(e.name === 'AbortError' ? '魔搭超时' : '魔搭网络不通');
+      });
+    }
+    return call({ model: model, messages: msgs, tools: TOOLS, temperature: 0.7 })
+      .then(function (m1) {
+        var tcs = m1.tool_calls || [];
+        if (!tcs.length) {
+          var c1 = (m1.content || '').trim();
+          if (!c1) throw new Error('魔搭空回复');
+          return { text: c1.slice(0, 800), src: '魔搭 ' + model.split('/').pop() };
+        }
+        // 第一轮：执行工具
+        msgs.push(m1);
+        var used = tcs.map(function (tc) { return tc.function.name; });
+        var jobs = tcs.map(function (tc) {
+          var args = {};
+          try { args = JSON.parse(tc.function.arguments || '{}'); } catch (e) {}
+          return runTool(tc.function.name, args).then(function (res) {
+            msgs.push({ role: 'tool', tool_call_id: tc.id, content: String(res).slice(0, 600) });
+          });
+        });
+        return Promise.all(jobs).then(function () {
+          return call({ model: model, messages: msgs, temperature: 0.7 });
+        }).then(function (m2) {
+          var c2 = (m2.content || '').trim();
+          if (!c2) throw new Error('魔搭第二轮空回复');
+          return { text: c2.slice(0, 800), src: '魔搭 · 调用工具 ' + used.join('+') };
+        });
+      });
+  }
+
+  /* ---------- 工具 6：AI 对话（魔搭 → 公共网关 → 本地大脑，三级降级） ---------- */
+  function aiChat(prompt) {
+    if (msGetKey()) {
+      return msChat(prompt).then(function (r) {
+        // msChat 已返回 {text, src}（含「调用工具 X」标注），拆开用，别把对象当文本
+        return { text: r.text, src: r.src || ('魔搭 ' + msGetModel().split('/').pop()) };
+      }, function () { return aiChatFallback(prompt); });
+    }
+    return aiChatFallback(prompt);
+  }
+  function aiChatFallback(prompt) {
+    var parts = ['你是「小A」，一个住在平板里的中文AI助手，说话简洁、口语化、友好。'];
+    if (mem.name) parts.push('用户名字叫' + mem.name + '。');
+    if (mem.facts.length) parts.push('关于用户的备忘：' + mem.facts.join('；') + '。');
+    for (var i = Math.max(0, history.length - 6); i < history.length; i++) {
+      parts.push((history[i].r === 'user' ? '用户' : '小A') + '：' + history[i].t);
+    }
+    parts.push('用户：' + prompt);
+    parts.push('小A：');
+    var full = parts.join('\n');
+    if (full.length > 1800) full = full.slice(-1800);
+    return fetchT('https://text.pollinations.ai/' + encodeURIComponent(full))
+      .then(function (r) { return r.text(); })
+      .then(function (t) {
+        t = (t || '').trim();
+        if (!t) throw new Error('ai empty');
+        return { text: t.slice(0, 800), src: '公共 AI 网关' };
+      }, function () { return { text: null, src: null }; });
+  }
+
+  /* ---------- 意图路由 ---------- */
+  function handle(raw) {
+    var t = String(raw || '').trim();
+    if (!t) return Promise.resolve();
+
+    // 帮助
+    if (/^(帮助|你能做什么|你会什么|功能|help)/i.test(t)) {
+      return Promise.resolve(
+        '我是小 A，这些事我都能办：\n' +
+        '🧮 算数：「算一下 (3+5)*8」「16 除以 4」\n' +
+        '📖 查百科：「查一下 火箭」（走维基百科）\n' +
+        '🌤 天气：「北京天气怎么样」\n' +
+        '🧠 记忆：「记住我叫阿仓」「我的密码提示是生日」\n' +
+        '🎲 玩：「掷骰子」「抛硬币」「抽签 A B C」「今晚吃什么」\n' +
+        '📏 换算：「3公里等于多少米」「100摄氏度等于多少华氏度」\n' +
+        '🕐 报时：「现在几点」\n' +
+        '💬 剩下的随便聊——能联网就走 AI，连不上我用本地大脑回你。');
+    }
+
+    // 记忆：写入
+    // 记忆：查询优先于写入（「我叫什么」是问句，不是声明）
+    if (/你记得我|我的名字|我叫什么/.test(t)) {
+      return Promise.resolve(mem.name ? '你叫' + mem.name + '啊，我一直记得。' : '还没告诉我你名字呢，说一句「我叫XX」就行。');
+    }
+    var mName = /(?:记住)?我叫(?:\做)?([一-龥a-zA-Z]{1,12})/.exec(t);
+    if (mName && /^我叫|记住我叫|请记住我叫/.test(t) && mName[1] !== '什么' && mName[1] !== '啥') {
+      mem.name = mName[1]; memSave();
+      return Promise.resolve('记住了，' + mem.name + '。以后就这么称呼你。');
+    }
+    var mFact = /^记住[，,：:]?\s*(.+)/.exec(t);
+    if (mFact) {
+      var fact = mFact[1].replace(/^我/, '你').trim();
+      if (fact.length > 120) fact = fact.slice(0, 120);
+      mem.facts.push(fact); memSave();
+      return Promise.resolve('记住了：' + fact);
+    }
+    if (/^忘(?:记|掉)|^删除记忆|^清空记忆/.test(t)) {
+      mem = { name: '', facts: [] }; memSave();
+      return Promise.resolve('记忆清空了，我又是张白纸。');
+    }
+
+    // 随机（本地，优先）
+    if (/骰子|掷骰|扔骰|roll/i.test(t)) return Promise.resolve('掷出：' + dice());
+    if (/硬币|抛币|正反面/.test(t)) {
+      var c = Math.random() < 0.5 ? '正面' : '反面';
+      return Promise.resolve('硬币落定：' + c + '。');
+    }
+    if (/吃什么|吃啥/.test(t)) {
+      return Promise.resolve('今晚吃' + pick(FOODS) + '！不满意就说「换一个」，我掷到你满意为止。');
+    }
+    var mDraw = /抽签|抽个|选一个/.exec(t);
+    if (mDraw) {
+      var opts = t.replace(/^.*?(?:抽签|抽个|选一个)[，,：:]?\s*/, '').split(/[\s,，、]+/).filter(Boolean);
+      if (opts.length >= 2) return Promise.resolve('抽签结果：' + pick(opts) + '（候选项：' + opts.join('、') + '）');
+    }
+
+    // 计算
+    if (looksLikeMath(t)) {
+      try {
+        var v = calc(t);
+        return Promise.resolve('= ' + v);
+      } catch (e) { /* 落到后面 */ }
+    }
+
+    // 换算
+    var tc = tempConvert(t);
+    if (tc) return Promise.resolve(tc);
+    var cv = convert(t);
+    if (cv) return Promise.resolve(cv);
+
+    // 天气
+    var mW = /([一-龥a-zA-Z]{2,10}?)(?:的)?(?:天气|气温|下不下雨|热不热|冷不冷)/.exec(t);
+    if (mW && /天气|气温|下雨|热|冷/.test(t)) {
+      var city = mW[1].replace(/^(查|看看|查查|问下?|告诉我)/, '');
+      return weather(city).then(function (r) { return r; }, function (e) {
+        return '天气现在查不到（' + e.message + '）。等网络好点再问，或者先问我别的。';
+      });
+    }
+
+    // 百科
+    var mK = /(?:查一下?|查查|搜索|什么是|是什么|介绍|百科|讲讲|解释)(?:一?下?)?[，,：:]?\s*([一-龥a-zA-Z0-9_ ]{1,20})/.exec(t);
+    if (mK && !/天气/.test(t)) {
+      var term = mK[1].trim();
+      return wiki(term).then(function (r) { return r; }, function (e) {
+        return '百科这条路也不通（' + e.message + '）。要不停下来聊聊？我能本地算数、记忆、掷骰子。';
+      });
+    }
+
+    // 报时
+    if (/几点|现在时间|今天(?:是)?(?:几号|星期|什么日子)|日期/.test(t)) {
+      var d = new Date();
+      var wk = ['日', '一', '二', '三', '四', '五', '六'][d.getDay()];
+      return Promise.resolve('现在 ' + d.getHours() + ':' + ('0' + d.getMinutes()).slice(-2) +
+        '，' + d.getFullYear() + '年' + (d.getMonth() + 1) + '月' + d.getDate() + '日，星期' + wk + '。');
+    }
+
+    // AI 对话（魔搭/公共网关都挂了才落本地大脑）
+    return aiChat(t).then(function (r) {
+      if (r && r.text) return r;
+      var recalled = recallLocal(t);
+      if (recalled) return { text: recalled + '。\n（AI 通道不在，这是我从最近对话里翻出来的）', src: '本地大脑' };
+      if (/你好|嗨|hi|hello/i.test(t)) return { text: (mem.name ? mem.name + '，' : '') + '你好！我是小 A。AI 通道暂时连不上，但算数、掷骰子、记事儿这些本地活儿我都能凑合。', src: '本地大脑' };
+      if (/再见|拜拜|bye/i.test(t)) return { text: '回见，随时叫我。', src: '本地大脑' };
+      if (/谢谢|感谢/.test(t)) return { text: '不客气。', src: '本地大脑' };
+      return { text: '这句话我本地大脑接不住，AI 通道又正好连不上。可以试试：「算一下 8*8」「掷骰子」「记住我叫阿仓」。', src: '本地大脑' };
+    });
+  }
+
+  /* ---------- 发送 ---------- */
+  var busy = false;
+  function send(text) {
+    text = String(text || '').trim();
+    if (!text || busy) return;
+    bubble(text, 'user');
+    input.value = '';
+    hisPush('user', text);
+    busy = true;
+    typing.classList.add('show');
+    var replyP;
+    try { replyP = handle(text); } catch (e) { replyP = Promise.resolve('内部冒了个小泡（' + e.message + '），换句话试试。'); }
+    replyP.then(function (reply) {
+      typing.classList.remove('show');
+      busy = false;
+      if (!reply) return;
+      var txt, src;
+      if (typeof reply === 'object') { txt = reply.text; src = reply.src; }
+      else { txt = reply; }
+      if (txt) { say(txt, src); hisPush('agent', txt); }
+    }, function (e) {
+      typing.classList.remove('show');
+      busy = false;
+      say('这句我没接住，换个说法试试。');
+    });
+  }
+  document.getElementById('send').addEventListener('click', function () { send(input.value); });
+  input.addEventListener('keydown', function (e) { if (e.key === 'Enter') send(input.value); });
+  document.querySelectorAll('.chip').forEach(function (c) {
+    c.addEventListener('click', function () { send(c.getAttribute('data-q')); });
+  });
+
+  /* ---------- 开场白 ---------- */
+  var hello = '你好' + (mem.name ? '，' + mem.name : '') + '！我是小 A，住在这台平板里。\n' +
+    '算数、查百科、问天气、掷骰子、帮你记事儿，都能办。\n' +
+    '顶部「🧠」能看到我记了什么。不知道说什么就打「帮助」。';
+  setTimeout(function () { say(hello, '本地引擎 · 无需联网'); }, 300);
+
+})();
+</script>
+</body>
+</html>
